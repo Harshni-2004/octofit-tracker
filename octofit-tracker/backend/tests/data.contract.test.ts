@@ -34,6 +34,9 @@ describe('OctoFit data contract', () => {
     expect(error?.errors.minutes).toBeDefined();
     expect(error?.errors.points).toBeDefined();
     expect(error?.errors.occurredAt).toBeDefined();
+    const negative = new Activity({ minutes: -30, points: -30 }).validateSync();
+    expect(negative?.errors.minutes).toBeDefined();
+    expect(negative?.errors.points).toBeDefined();
   });
   it('defines workout suggestions with focus, duration, and difficulty', () => {
     const workout = new Workout({ title: 'Intervals' });
