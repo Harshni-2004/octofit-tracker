@@ -1,12 +1,30 @@
 import { Activity, Team, User, Workout } from '../models/index.js';
 import mongoose from 'mongoose';
 
+function assertRequestBody(input: unknown): asserts input is Record<string, unknown> {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw Object.assign(new Error('Invalid request body'), { status: 400 });
+  }
+}
+
+async function createWithValidation<T>(create: () => Promise<T>): Promise<T> {
+  try {
+    return await create();
+  } catch (error) {
+    if (error instanceof mongoose.Error.ValidationError || error instanceof mongoose.Error.CastError) {
+      throw Object.assign(new Error(error.message), { status: 400 });
+    }
+    throw error;
+  }
+}
+
 export async function listActivities() {
   return Activity.find().lean();
 }
 
 export async function createActivity(input: unknown) {
-  const body = input as Record<string, unknown>;
+  assertRequestBody(input);
+  const body = input;
 
   if (!body.userId || !body.teamId || !body.type || body.minutes === undefined) {
     throw Object.assign(new Error('Missing required fields: userId, teamId, type, minutes'), { status: 400 });
@@ -31,14 +49,14 @@ export async function createActivity(input: unknown) {
   }
 
   const points = (body.minutes as number) || 0;
-  const activity = await Activity.create({
+  const activity = await createWithValidation(() => Activity.create({
     user: body.userId,
     team: body.teamId,
     type: body.type,
     minutes: body.minutes,
     points,
     occurredAt: new Date(),
-  });
+  }));
 
   return activity.toObject();
 }
@@ -48,7 +66,8 @@ export async function listTeams() {
 }
 
 export async function createTeam(input: unknown) {
-  const body = input as Record<string, unknown>;
+  assertRequestBody(input);
+  const body = input;
 
   if (!body.name) {
     throw Object.assign(new Error('Missing required field: name'), { status: 400 });
@@ -60,11 +79,11 @@ export async function createTeam(input: unknown) {
 
   const members = Array.isArray(body.members) ? body.members : [];
   
-  const team = await Team.create({
+  const team = await createWithValidation(() => Team.create({
     name: body.name,
     mascot: body.mascot,
     members,
-  });
+  }));
 
   return team.toObject();
 }

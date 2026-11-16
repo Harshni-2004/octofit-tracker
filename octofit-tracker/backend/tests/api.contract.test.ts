@@ -32,6 +32,12 @@ describe('OctoFit API contract', () => {
     const { user, team } = await createUserAndTeam('Mona', 'mona@example.com', 'Mona');
     const invalid = await request(app).post('/api/activities').send({});
     expect(invalid.status).toBe(400);
+    for (const body of [undefined, null, [], 'invalid']) {
+      let requestBody = request(app).post('/api/activities');
+      if (body !== undefined) requestBody = requestBody.set('Content-Type', 'application/json').send(JSON.stringify(body));
+      const response = await requestBody;
+      expect(response.status).toBe(400);
+    }
     const missingReferences = await request(app).post('/api/activities').send({ userId: new mongoose.Types.ObjectId().toString(), teamId: new mongoose.Types.ObjectId().toString(), type: 'run', minutes: 30 });
     expect(missingReferences.status).toBeGreaterThanOrEqual(400);
     expect(missingReferences.status).toBeLessThan(500);
@@ -40,6 +46,12 @@ describe('OctoFit API contract', () => {
       expect(response.status).toBeGreaterThanOrEqual(400);
       expect(response.status).toBeLessThan(500);
     }
+    expect(await Activity.countDocuments()).toBe(0);
+    const negative = await request(app).post('/api/activities').send({ userId: user._id.toString(), teamId: team._id.toString(), type: 'run', minutes: -30 });
+    expect(negative.status).toBe(400);
+    expect(await Activity.countDocuments()).toBe(0);
+    const invalidMinutes = await request(app).post('/api/activities').send({ userId: user._id.toString(), teamId: team._id.toString(), type: 'run', minutes: 'invalid' });
+    expect(invalidMinutes.status).toBe(400);
     expect(await Activity.countDocuments()).toBe(0);
     const created = await request(app).post('/api/activities').send({ userId: user._id.toString(), teamId: team._id.toString(), type: 'run', minutes: 30 });
     expect(created.status).toBe(201);
@@ -55,6 +67,14 @@ describe('OctoFit API contract', () => {
     const member = await User.create({ name: 'Mona', email: 'mona@example.com', fitnessGoal: 'endurance' });
     const invalid = await request(app).post('/api/teams').send({ mascot: 'Mona' });
     expect(invalid.status).toBe(400);
+    for (const body of [undefined, null, [], 'invalid']) {
+      let requestBody = request(app).post('/api/teams');
+      if (body !== undefined) requestBody = requestBody.set('Content-Type', 'application/json').send(JSON.stringify(body));
+      const response = await requestBody;
+      expect(response.status).toBe(400);
+    }
+    const invalidMember = await request(app).post('/api/teams').send({ name: 'Octocats', mascot: 'Mona', members: ['not-an-id'] });
+    expect(invalidMember.status).toBe(400);
     const created = await request(app).post('/api/teams').send({ name: 'Octocats', mascot: 'Mona', members: [member._id.toString()] });
     expect(created.status).toBe(201);
     expect(created.body.team).toMatchObject({ name: 'Octocats', mascot: 'Mona' });
